@@ -1,21 +1,33 @@
+import { act } from "react";
 import { HandEvaluator } from "./HandEvaluator";
+import { PokerAction } from "./PokerAction";
 import { PokerCard } from "./PokerCard";
 import { PokerDeck } from "./PokerDeck";
 import { PokerPlayer } from "./PokerPlayer";
 
 export class PokerTable {
+
   private players: PokerPlayer[] = [];
+
+  private playerTurn: number = 0;
+
   private deck: PokerDeck = new PokerDeck();
+
   private communautaryCards: PokerCard[] = [];
+
   private pot: number = 0;
+
   private get globalPot(): number {
     return this.pot + this.players.reduce((sum: number, p: PokerPlayer) => {
       sum =+ p.getStash();
       return sum
     }, 0)
-  }
+  };
+
   private handEvaluator: HandEvaluator = new HandEvaluator();
+
   private dealer = 0;
+
   private smallBlind = 5;
 
   constructor() {}
@@ -24,24 +36,43 @@ export class PokerTable {
     this.players.push(player);
   }
 
-  removePlayer(player: PokerPlayer): void {
-    const playerIndex = this.players.findIndex(
-      (searchedPlayer) => (searchedPlayer.name = player.name)
-    );
-    this.players.splice(playerIndex, 1);
-  }
-
   start(): void {
     this.changeDealer();
     this.dealInitialCards(this.dealer);
+    this.payBlinds();
+    this.playerTurn = this.getFirstPlayer();
+    this.playPhase();
+  }
+
+  private playPhase(): void {
+    const actions = this.getActions();
+    // TODO: Finish implementation
+    
+  }
+
+  private getActions() {
+    const actions: PokerAction[] = [PokerAction.BET, PokerAction.FOLD];
+    const previousPlayer = this.players[this.getPreviousPlayerIndex(this.playerTurn)];
+    if (previousPlayer.getStash() > 0) {
+      actions.push(PokerAction.CALL);
+    }
+    else if (previousPlayer.getLastAction() === PokerAction.CHECK || previousPlayer.getLastAction() === PokerAction.NONE) {
+      actions.push(PokerAction.CHECK);
+    }
+    return actions;
+  }
+
+  private getFirstPlayer(): number {
+    return (this.dealer + 2) % this.players.length;
+  }
+
+  private payBlinds() {
     const smallBlindIndex = this.getNextPlayerIndex(this.dealer);
     const smallBlindPlayer = this.players[smallBlindIndex];
     const bigBlindIndex = this.getNextPlayerIndex(smallBlindIndex);
     const bigBlindPlayer = this.players[bigBlindIndex];
     smallBlindPlayer.giveChips(this.smallBlind);
     bigBlindPlayer.giveChips(this.smallBlind * 2);
-
-    //PLAY
   }
 
   private changeDealer() {
@@ -59,6 +90,14 @@ export class PokerTable {
       nextPlayer = 0;
     }
     return nextPlayer;
+  }
+
+  private getPreviousPlayerIndex(actualPlayerIndex: number): number {
+    let index = actualPlayerIndex - 1;
+    if (index < 0) {
+      index = this.players.length - 1;
+    }
+    return index;
   }
 
   nextPhase(): void {
@@ -132,6 +171,7 @@ export class PokerTable {
       alert("Game Over");
     }
   }
+  
   // TODO: IMPROVE PAIEMENT METHOD
   private payPlayers(winners: PokerPlayer[]) {
     const potPart = this.pot / winners.length;
