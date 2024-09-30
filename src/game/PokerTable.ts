@@ -1,4 +1,3 @@
-import { act } from "react";
 import { HandEvaluator } from "./HandEvaluator";
 import { PokerAction } from "./PokerAction";
 import { PokerCard } from "./PokerCard";
@@ -6,7 +5,6 @@ import { PokerDeck } from "./PokerDeck";
 import { PokerPlayer } from "./PokerPlayer";
 
 export class PokerTable {
-
   private players: PokerPlayer[] = [];
 
   private playerTurn: number = 0;
@@ -17,12 +15,17 @@ export class PokerTable {
 
   private pot: number = 0;
 
+  private extraPot: number = 0;
+
   private get globalPot(): number {
-    return this.pot + this.players.reduce((sum: number, p: PokerPlayer) => {
-      sum =+ p.getStash();
-      return sum
-    }, 0)
-  };
+    return (
+      this.pot +
+      this.players.reduce((sum: number, p: PokerPlayer) => {
+        sum = +p.getStash();
+        return sum;
+      }, 0)
+    );
+  }
 
   private handEvaluator: HandEvaluator = new HandEvaluator();
 
@@ -36,6 +39,10 @@ export class PokerTable {
     this.players.push(player);
   }
 
+  /**
+   * Starts a new round of poker by changing the dealer, dealing initial cards, paying blinds,
+   *  and beginning the play phase.
+   */
   start(): void {
     this.changeDealer();
     this.dealInitialCards(this.dealer);
@@ -47,25 +54,39 @@ export class PokerTable {
   private playPhase(): void {
     const actions = this.getActions();
     // TODO: Finish implementation
-    
   }
 
   private getActions() {
     const actions: PokerAction[] = [PokerAction.BET, PokerAction.FOLD];
-    const previousPlayer = this.players[this.getPreviousPlayerIndex(this.playerTurn)];
+    const previousPlayer = this.getPreviousPlayingPlayer();
     if (previousPlayer.getStash() > 0) {
       actions.push(PokerAction.CALL);
-    }
-    else if (previousPlayer.getLastAction() === PokerAction.CHECK || previousPlayer.getLastAction() === PokerAction.NONE) {
+    } else if (
+      previousPlayer.getLastAction() === PokerAction.CHECK ||
+      previousPlayer.getLastAction() === PokerAction.NONE
+    ) {
       actions.push(PokerAction.CHECK);
     }
     return actions;
   }
-
   private getFirstPlayer(): number {
     return (this.dealer + 2) % this.players.length;
   }
 
+  /**
+   * Checks if the player at the given index is the button.
+   *
+   * @param {number} playerIndex - The index of the player to check.
+   * @return {boolean} True if the player is the button, false otherwise.
+   */
+  private isPlayerButton(playerIndex: number): boolean {
+    const button = (this.dealer + 3) % this.players.length;
+    return button === playerIndex;
+  }
+
+  /**
+   * Pays the small and big blinds to the corresponding players.
+   */
   private payBlinds() {
     const smallBlindIndex = this.getNextPlayerIndex(this.dealer);
     const smallBlindPlayer = this.players[smallBlindIndex];
@@ -75,6 +96,9 @@ export class PokerTable {
     bigBlindPlayer.giveChips(this.smallBlind * 2);
   }
 
+  /**
+   * Changes the dealer to the next player in the list, or assigns a random player as the dealer if no dealer is currently set.
+   */
   private changeDealer() {
     if (this.dealer) {
       this.dealer = this.getNextPlayerIndex(this.dealer);
@@ -100,6 +124,22 @@ export class PokerTable {
     return index;
   }
 
+  private getPreviousPlayer(): PokerPlayer {
+    return this.players[this.getPreviousPlayerIndex(this.playerTurn)];
+  }
+
+  private getPreviousPlayingPlayer(): PokerPlayer {
+    const previousPlayer = this.getPreviousPlayer();
+    if (previousPlayer.isFolded) {
+      return this.getPreviousPlayingPlayer();
+    }
+    return previousPlayer;
+  }
+
+  private getNextPlayer(): PokerPlayer {
+    return this.players[this.getNextPlayerIndex(this.playerTurn)];
+  }
+
   nextPhase(): void {
     if (this.communautaryCards.length === 0) {
       this.threeCardsPhase();
@@ -117,7 +157,11 @@ export class PokerTable {
 
   private dealInitialCards(dealerIndex: number): void {
     const firstPlayerServed = dealerIndex + 1;
-    for (let index = firstPlayerServed; index < this.players.length * 2; index++) {
+    for (
+      let index = firstPlayerServed;
+      index < this.players.length * 2;
+      index++
+    ) {
       const playerIndex = index % this.players.length;
       const player = this.players[playerIndex];
       const card = this.deck.drawCard();
@@ -171,13 +215,10 @@ export class PokerTable {
       alert("Game Over");
     }
   }
-  
-  // TODO: IMPROVE PAIEMENT METHOD
+
+  // this method should awards each winners the correct amount of chips based on the array winners, if a players won but has bet less chips that the other, we should award him at the same amount of chips as his bet quantity
   private payPlayers(winners: PokerPlayer[]) {
-    const potPart = this.pot / winners.length;
-    winners.forEach((winner) => {
-      winner.receiveChips(potPart);
-    });
+  
   }
 
   private checkGameOver(): boolean {
